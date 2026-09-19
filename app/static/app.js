@@ -33,7 +33,7 @@ function render(next){
  $('loads').innerHTML=table(['Команда',...Array.from({length:6},(_,i)=>`Спринт ${i+1}`)],teams.map(team=>[escapeHTML(team),...Array.from({length:6},(_,i)=>{const l=plan.loads.find(x=>x.team===team&&x.sprint===i+1);return l?`${num(l.sp)} / ${num(l.capacity)}<div class="bar"><i style="width:${Math.min(100,l.capacity?l.sp/l.capacity*100:0)}%"></i></div>`:'<span class="muted">Закрыт</span>'})]));
  renderSchedule();renderPeople();renderBusFactor(state.id);
  $('initiatives').innerHTML=plan.initiatives.map(i=>`<div class="card"><h3>${escapeHTML(i.id)}</h3><span class="chip ${i.feasible?'':'orange'}">${i.done?'Завершена':i.feasible?'Укладывается в прогноз':'Цель под риском'}</span><p>${i.planned_tasks} задач в будущем плане${i.blocked_tasks.length?` · ${i.blocked_tasks.length} с ограничениями`:''}</p></div>`).join('');
- $('risks').innerHTML=state.risks.length?state.risks.map(r=>`<div class="risk ${r.level}"><b>${escapeHTML(r.task_id||r.initiative)}</b><div><p>${escapeHTML(r.message)}</p><span class="small">${escapeHTML(r.initiative)}</span></div></div>`).join(''):'<div class="panel">Ограничений в текущем плане не найдено.</div>';
+ renderAlerts();
  $('start-date').value=state.settings.start_date;$('start-date').disabled=!!state.baseline;$('strict-skills').checked=state.settings.strict_skills;
  $('issue-count').textContent=`${state.dataset.issues.length} замечаний`;
  $('issues').innerHTML=table(['Задача','Проверка'],state.dataset.issues.map(i=>[escapeHTML(i.task_id||'—'),escapeHTML(i.message)]));
@@ -76,6 +76,18 @@ async function renderBusFactor(scenario){
   $('bus-factor-potential-toggle').hidden=!potential.length;
   $('bus-factor-potential').innerHTML=potential.map(card).join('');
  } catch(e) {$('bus-factor').hidden=false;$('bus-factor').innerHTML='<p class="muted">Не удалось загрузить отчёт Bus Factor.</p>';}
+}
+function renderAlerts(){
+ const alerts=state.alerts, summary=alerts.summary;
+ const card=r=>`<div class="risk ${r.level}"><b>${escapeHTML(r.task_id||r.initiative||'Общее')}</b><div><span class="chip ${r.level==='red'?'red':r.level==='orange'?'orange':r.level==='gray'?'gray':''}">${escapeHTML(r.kind)}</span><p>${escapeHTML(r.message)}</p>${r.affected_tasks.length?`<p class="small">Затронутые задачи: ${r.affected_tasks.map(escapeHTML).join(', ')}</p>`:''}${r.affected_initiatives.length?`<p>${r.affected_initiatives.map(i=>`<span class="chip">${escapeHTML(i)}</span>`).join(' ')}</p>`:''}</div></div>`;
+ const group=(id,title,items)=>$(id).innerHTML=items.length?`<h3>${title} (${items.length})</h3>${items.map(card).join('')}`:'';
+ $('alerts-summary').innerHTML=`<span>🔴 ${summary.critical}</span><span>🟡 ${summary.cascade}</span><span>🟠 ${summary.resource}</span><span>⚪ ${summary.info}</span>`;
+ group('alerts-critical','🔴 Критические',alerts.critical);
+ group('alerts-cascade','🟡 Каскадные',alerts.cascade);
+ group('alerts-resource','🟠 Ресурсные',alerts.resource);
+ $('alerts-info-toggle').hidden=!alerts.info.length;
+ $('alerts-info').innerHTML=alerts.info.length?`<h3>⚪ Информационные (${alerts.info.length})</h3>${alerts.info.map(card).join('')}`:'';
+ if(!Object.values(summary).some(Boolean))$('alerts-critical').innerHTML='<div class="panel">Ограничений в текущем плане не найдено.</div>';
 }
 function renderMetrics(){const m=state.metrics;if(!m.confirmed){$('metrics').textContent=m.message;return;}
  $('metrics').innerHTML=`<div class="form-row"><div><strong>${num(m.quarter_percent)}%</strong> квартального плана по факту (${m.completed_initiatives}/${m.baseline_initiatives} инициатив)</div><div class="muted">Прогноз: ${num(m.forecast_percent)}%</div></div><p class="muted">${escapeHTML(m.message)}</p>`+table(['Спринт','Исходный план, SP','Факт, SP','Say/Do'],m.sprints.map(s=>[s.sprint,num(s.planned_sp),num(s.actual_sp),s.percent===null?'—':num(s.percent)+'%']));}

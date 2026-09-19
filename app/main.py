@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from .analytics import build_bus_factor_report, metrics, risks, star_map
+from .analytics import build_bus_factor_report, group_risks, metrics, risks, star_map
 from .loader import load_excel, role_name, skill_name
 from .ml import forecast
 from .planner import build_plan, snapshot, validate_settings
@@ -99,9 +99,10 @@ def create_app(db_path=None):
         data = Dataset.model_validate(state["dataset"])
         settings = PlanRequest.model_validate(state["settings"])
         plan = state["plan"]
+        risks_list = risks(plan,state["baseline"],data)
         return dict(**state, empty=False, scenarios=store.list(),
                     metrics=metrics(data,settings,state["facts"],state["baseline"],plan),
-                    stars=star_map(data,settings,plan), risks=risks(plan,state["baseline"],data))
+                    stars=star_map(data,settings,plan), risks=risks_list, alerts=group_risks(risks_list))
 
     @app.get("/api/state")
     def state():

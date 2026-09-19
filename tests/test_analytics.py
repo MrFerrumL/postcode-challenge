@@ -57,3 +57,62 @@ def test_bus_factor_no_affected_is_medium():
     item = skill(stars([task("A", "тестировщик")], [engineer]), "spring")
     assert item["risk_level"] == "medium"
     assert item["risk_category"] == "potential"
+
+
+from app.analytics import group_risks, risks
+
+
+def risk_data(tasks, engineers=None, dependencies=None):
+    return Dataset(tasks=tasks, engineers=engineers or [], dependencies=dependencies or [],
+                   history=[History(date=date(2026, 1, 1), team="Team-L", achieved=10, planned=10)])
+
+
+def risk_row(tid, status="deferred", code="horizon", finish=None):
+    return dict(task_id=tid, initiative="I-1", status=status, code=code, reason=code, finish=finish)
+
+
+def risk_plan(rows, initiatives=None):
+    return dict(tasks=rows, initiatives=initiatives or [])
+
+
+def test_risks_horizon_is_red():
+    items = risks(risk_plan([risk_row("A")]), None, risk_data([task("A", "dev")]))
+    item = next(item for item in items if item["kind"] == "horizon")
+    assert item["level"] == "red" and item["affected_tasks"] == ["A"]
+
+
+def test_risks_dependency_is_red():
+    items = risks(risk_plan([risk_row("A", code="dependency")]), None, risk_data([task("A", "dev")]))
+    assert next(item for item in items if item["kind"] == "dependency")["level"] == "red"
+
+
+def test_risks_role_shortage_is_orange():
+    items = risks(risk_plan([risk_row("A", code="missing_role")]), None, risk_data([task("A", "qa")]))
+    item = next(item for item in items if item["kind"] == "role_shortage")
+    assert item["level"] == "orange" and item["affected_tasks"] == ["A"]
+
+
+def test_risks_cancelled_initiative_is_red():
+    items = risks(risk_plan([], [dict(id="I-1", feasible=False, blocked_tasks=["A"])]), None,
+                  risk_data([task("A", "dev")]))
+    item = next(item for item in items if item["kind"] == "cancelled_initiative")
+    assert item["level"] == "red" and item["affected_initiatives"] == ["I-1"]
+
+
+def test_risks_cascade_needs_baseline():
+    items = risks(risk_plan([risk_row("A", status="planned", finish=2)]), None, risk_data([task("A", "dev")]))
+    assert not any(item["kind"] == "cascade" for item in items)
+    assert any(item["kind"] == "info" for item in items)
+
+
+def test_risks_cascade_after_baseline():
+    source = risk_data([task("A", "dev"), task("B", "dev")], dependencies=[("A", "B")])
+    baseline = risk_plan([risk_row("A", status="planned", finish=1)])
+    items = risks(risk_plan([risk_row("A", status="planned", finish=2)]), baseline, source)
+    item = next(item for item in items if item["kind"] == "cascade")
+    assert item["level"] == "yellow" and item["affected_tasks"] == ["B"]
+
+
+def test_risks_grouping_summary():
+    result = group_risks([dict(level="red"), dict(level="yellow"), dict(level="orange"), dict(level="gray")])
+    assert result["summary"] == dict(critical=1, cascade=1, resource=1, info=1)

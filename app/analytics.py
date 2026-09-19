@@ -141,15 +141,48 @@ def metrics(data, settings, facts, baseline, plan):
 def risks(plan, baseline, data):
     items = []
     before = {t["task_id"]:t for t in baseline["tasks"]} if baseline else {}
+    tasks = {t.id:t for t in data.tasks}
+
+    def add(level, kind, task_id=None, initiative=None, message="", affected_tasks=None, affected_initiatives=None):
+        items.append(dict(level=level, kind=kind, task_id=task_id, initiative=initiative, message=message,
+                          affected_tasks=affected_tasks or [], affected_initiatives=affected_initiatives or []))
+
     for t in plan["tasks"]:
         if t["status"] in ("deferred","needs_input"):
-            level = "red" if t["code"] in ("horizon","dependency") else "orange"
-            items.append(dict(level=level, task_id=t["task_id"], initiative=t["initiative"], message=t["reason"]))
+            task = tasks[t["task_id"]]
+            missing_role = any(hours > 0 and not any(e.team == task.team and e.role == role for e in data.engineers)
+                               for role,hours in task.roles.items())
+            if t["code"] in ("horizon","dependency"):
+                level, kind = "red", t["code"]
+            elif missing_role:
+                level, kind = "orange", "role_shortage"
+            elif t["code"] == "missing_skills":
+                level, kind = "orange", "skill_shortage"
+            else:
+                level, kind = "orange", "capacity"
+            add(level, kind, t["task_id"], t["initiative"], t["reason"], [t["task_id"]], [t["initiative"]])
         old = before.get(t["task_id"])
         if old and old["finish"] and t["finish"] and t["finish"]>old["finish"]:
-            items.append(dict(level="yellow", task_id=t["task_id"], initiative=t["initiative"],
-                              message=f"Сдвиг завершения: спринт {old['finish']} → {t['finish']}; проверьте зависимые работы"))
+            affected = sorted(b for a,b in data.dependencies if a == t["task_id"])
+            initiatives = sorted({tasks[tid].initiative for tid in affected})
+            add("yellow", "cascade", t["task_id"], t["initiative"],
+                f"Сдвиг завершения: спринт {old['finish']} → {t['finish']}; проверьте зависимые работы",
+                affected, initiatives)
     for i in plan["initiatives"]:
         if not i["feasible"]:
-            items.append(dict(level="red", task_id=None, initiative=i["id"], message="Инициатива не завершается в найденном квартальном плане: " + ", ".join(i["blocked_tasks"])))
+            add("red", "cancelled_initiative", initiative=i["id"],
+                message="Инициатива не завершается в найденном квартальном плане: " + ", ".join(i["blocked_tasks"]),
+                affected_tasks=i["blocked_tasks"], affected_initiatives=[i["id"]])
+    if not baseline:
+        add("gray", "info", message="План не подтверждён — каскадные риски станут доступны после подтверждения исходного плана")
     return items
+
+
+def group_risks(items):
+    """Группирует плоский список рисков для панели менеджера."""
+    groups = dict(critical=[], cascade=[], resource=[], info=[])
+    names = dict(red="critical", yellow="cascade", orange="resource", gray="info")
+    for item in items:
+        groups[names[item["level"]]].append(item)
+    groups["summary"] = {name:len(items) for name,items in groups.items()}
+    return groups
