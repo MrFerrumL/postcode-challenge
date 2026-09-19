@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run FastAPI" type="PythonConfigurationType" factoryName="Python">
+    <module name="quarter-planner" />
+    <option name="MODULE_MODE" value="true" />
+    <option name="MODULE_NAME" value="uvicorn" />
+    <option name="PARAMETERS" value="app.main:app --reload" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <option name="EMULATE_TERMINAL" value="true" />
+    <method v="2" />
+  </configuration>
+</component>
