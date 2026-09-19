@@ -83,6 +83,31 @@ class PlanRequest(Model):
         return self
 
 
+class CriticalSkill(Model):
+    scope: str
+    skill: str
+    bus_factor: int = Field(ge=0)
+    holder: str | None = None
+    holder_name: str | None = None
+    holder_role: str | None = None
+    holder_team: str | None = None
+    holder_rate: float | None = None
+    affected_tasks: list[str] = Field(default_factory=list)
+    affected_initiatives: list[str] = Field(default_factory=list)
+    risk_level: Literal["critical", "high", "medium"]
+    risk_category: Literal["role_deficit", "unique_skill", "parttime", "potential"]
+    explanation: str
+
+
+class BusFactorReport(Model):
+    total_skills: int
+    critical_count: int
+    high_count: int
+    medium_count: int
+    critical_skills: list[CriticalSkill]
+    healthy_skills: list[dict]
+
+
 class TaskFact(Model):
     task_id: str
     status: Literal["InProgress", "Done"]

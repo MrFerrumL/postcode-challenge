@@ -31,7 +31,7 @@ function render(next){
  $('baseline').textContent=state.baseline?'Исходный план сохранён':'Подтвердить исходный план';$('baseline').disabled=!!state.baseline;
  const teams=Object.keys(plan.capacities).sort();options($('team-filter'),teams,'Все команды');options($('people-team'),teams,'Все команды');
  $('loads').innerHTML=table(['Команда',...Array.from({length:6},(_,i)=>`Спринт ${i+1}`)],teams.map(team=>[escapeHTML(team),...Array.from({length:6},(_,i)=>{const l=plan.loads.find(x=>x.team===team&&x.sprint===i+1);return l?`${num(l.sp)} / ${num(l.capacity)}<div class="bar"><i style="width:${Math.min(100,l.capacity?l.sp/l.capacity*100:0)}%"></i></div>`:'<span class="muted">Закрыт</span>'})]));
- renderSchedule();renderPeople();
+ renderSchedule();renderPeople();renderBusFactor(state.id);
  $('initiatives').innerHTML=plan.initiatives.map(i=>`<div class="card"><h3>${escapeHTML(i.id)}</h3><span class="chip ${i.feasible?'':'orange'}">${i.done?'Завершена':i.feasible?'Укладывается в прогноз':'Цель под риском'}</span><p>${i.planned_tasks} задач в будущем плане${i.blocked_tasks.length?` · ${i.blocked_tasks.length} с ограничениями`:''}</p></div>`).join('');
  $('risks').innerHTML=state.risks.length?state.risks.map(r=>`<div class="risk ${r.level}"><b>${escapeHTML(r.task_id||r.initiative)}</b><div><p>${escapeHTML(r.message)}</p><span class="small">${escapeHTML(r.initiative)}</span></div></div>`).join(''):'<div class="panel">Ограничений в текущем плане не найдено.</div>';
  $('start-date').value=state.settings.start_date;$('start-date').disabled=!!state.baseline;$('strict-skills').checked=state.settings.strict_skills;
@@ -55,6 +55,27 @@ function renderPeople(){
  return `<div class="card"><h3>${escapeHTML(e.id)} <span class="small">${escapeHTML(e.grade)}</span></h3><p>${escapeHTML(e.role)}</p><p>${e.assignments.map(a=>`${escapeHTML(a.team)} · ${num(a.rate)} ставки · ${num(a.hours_per_sprint)} ч`).join('<br>')}</p><p class="skills">${e.skills.map(escapeHTML).join(' · ')}</p><p class="small">План часов С1–С6: ${loads.join(' / ')}</p></div>`;}).join('');
  const factors=state.stars.skills.filter(s=>s.scope===(team||'Все команды')&&s.skill.includes(search));
  $('skills').innerHTML=table(['Навык','Bus Factor','Сотрудники','Требуется задачам'],factors.map(s=>[escapeHTML(s.skill),`<span class="chip ${s.bus_factor<2?'orange':''}">${s.bus_factor}</span>`,s.engineers.map(escapeHTML).join(', ')||'—',s.tasks.map(escapeHTML).join(', ')||'<span class="muted">Требования не заданы</span>']));
+}
+async function renderBusFactor(scenario){
+ try {
+  const report=await api('/api/bus-factor');
+  if(state.id!==scenario)return;
+  const critical=report.critical_skills.filter(s=>s.risk_level==='critical');
+  $('bus-factor').hidden=!!critical.length;
+  if(!critical.length)$('bus-factor').innerHTML='<p class="muted">Критических компетенций не найдено</p>';
+  const card=s=>{
+   const level=s.risk_level==='critical'?'red':s.risk_level==='high'?'orange':'yellow';
+   const holder=s.holder_name||s.holder||'Носитель не найден';
+   const profile=s.holder_role?`${s.holder_role} · ${num(s.holder_rate)} ставки`:'роль и ставка не определены';
+   return `<div class="risk ${level}"><b>${escapeHTML(s.skill)}</b><div><p>${escapeHTML(holder)} · ${escapeHTML(profile)}</p><p>${s.affected_tasks.length} задач: ${s.affected_tasks.map(escapeHTML).join(', ')||'—'}</p><p>${escapeHTML(s.explanation)}</p></div></div>`;
+  };
+  for(const [category,id] of [['role_deficit','bus-factor-role-deficit'],['unique_skill','bus-factor-unique-skill'],['parttime','bus-factor-parttime']]){
+   const items=report.critical_skills.filter(s=>s.risk_category===category);$(id).hidden=!items.length;$(`${id}-items`).innerHTML=items.map(card).join('');
+  }
+  const potential=report.critical_skills.filter(s=>s.risk_category==='potential');
+  $('bus-factor-potential-toggle').hidden=!potential.length;
+  $('bus-factor-potential').innerHTML=potential.map(card).join('');
+ } catch(e) {$('bus-factor').hidden=false;$('bus-factor').innerHTML='<p class="muted">Не удалось загрузить отчёт Bus Factor.</p>';}
 }
 function renderMetrics(){const m=state.metrics;if(!m.confirmed){$('metrics').textContent=m.message;return;}
  $('metrics').innerHTML=`<div class="form-row"><div><strong>${num(m.quarter_percent)}%</strong> квартального плана по факту (${m.completed_initiatives}/${m.baseline_initiatives} инициатив)</div><div class="muted">Прогноз: ${num(m.forecast_percent)}%</div></div><p class="muted">${escapeHTML(m.message)}</p>`+table(['Спринт','Исходный план, SP','Факт, SP','Say/Do'],m.sprints.map(s=>[s.sprint,num(s.planned_sp),num(s.actual_sp),s.percent===null?'—':num(s.percent)+'%']));}
