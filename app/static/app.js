@@ -46,7 +46,7 @@ function render(next){
 function renderSchedule(){
  const search=$('task-search').value.toLowerCase(),team=$('team-filter').value,mode=$('status-filter').value;
  const tasks=state.plan.tasks.filter(t=>(!team||t.team===team)&&(mode==='all'||mode==='open'&&t.status!=='done'||mode==='planned'&&t.status==='planned')&&`${t.task_id} ${t.title} ${t.initiative}`.toLowerCase().includes(search));
- $('schedule').innerHTML=`<table><thead><tr><th>Задача / объяснение</th>${[1,2,3,4,5,6].map(s=>`<th>Спринт ${s}</th>`).join('')}</tr></thead><tbody>${tasks.length?tasks.map(t=>`<tr><td class="task-cell"><b>${escapeHTML(t.task_id)}</b> <span class="small">${escapeHTML(t.team)}</span><p>${escapeHTML(t.title)}</p><span class="chip ${t.status==='deferred'?'orange':t.status==='needs_input'?'red':''}">${statuses[t.status]}</span><p>${escapeHTML(t.reason)}</p></td>${[1,2,3,4,5,6].map(s=>{const c=t.chunks.find(c=>c.sprint===s);return `<td>${c?`<div class="slot">${num(c.sp)} SP<small>${num(c.hours)} ч</small></div>`:'<span class="empty-slot">—</span>'}</td>`}).join('')}</tr>`).join(''):'<tr><td colspan="7" class="muted">Нет задач по выбранному фильтру. Посмотрите ограничения или измените фильтр.</td></tr>'}</tbody></table>`;
+ $('schedule').innerHTML=`<table><thead><tr><th>Задача / объяснение</th>${[1,2,3,4,5,6].map(s=>`<th>Спринт ${s}</th>`).join('')}</tr></thead><tbody>${tasks.length?tasks.map(t=>`<tr><td class="task-cell"><b>${escapeHTML(t.task_id)}</b> <span class="small">${escapeHTML(t.team)}</span><p>${escapeHTML(t.title)}</p><span class="chip ${t.status==='deferred'?'orange':t.status==='needs_input'?'red':''}">${statuses[t.status]}</span><p>${escapeHTML(t.reason)}</p><button class="link" data-explain-task="${escapeHTML(t.task_id)}">Почему так?</button></td>${[1,2,3,4,5,6].map(s=>{const c=t.chunks.find(c=>c.sprint===s);return `<td>${c?`<div class="slot">${num(c.sp)} SP<small>${num(c.hours)} ч</small></div>`:'<span class="empty-slot">—</span>'}</td>`}).join('')}</tr>`).join(''):'<tr><td colspan="7" class="muted">Нет задач по выбранному фильтру. Посмотрите ограничения или измените фильтр.</td></tr>'}</tbody></table>`;
 }
 function renderPeople(){
  const team=$('people-team').value, search=$('skill-search').value.toLowerCase();
@@ -67,7 +67,8 @@ async function renderBusFactor(scenario){
    const level=s.risk_level==='critical'?'red':s.risk_level==='high'?'orange':'yellow';
    const holder=s.holder_name||s.holder||'Носитель не найден';
    const profile=s.holder_role?`${s.holder_role} · ${num(s.holder_rate)} ставки`:'роль и ставка не определены';
-   return `<div class="risk ${level}"><b>${escapeHTML(s.skill)}</b><div><p>${escapeHTML(holder)} · ${escapeHTML(profile)}</p><p>${s.affected_tasks.length} задач: ${s.affected_tasks.map(escapeHTML).join(', ')||'—'}</p><p>${escapeHTML(s.explanation)}</p></div></div>`;
+   const explain=s.affected_tasks.length?`<button class="link" data-explain-task="${escapeHTML(s.affected_tasks[0])}">Почему BF=1?</button>`:s.explanation?`<button class="link" data-explain-text="${escapeHTML(s.explanation)}" data-explain-title="${escapeHTML(s.skill)}">Почему BF=1?</button>`:'';
+   return `<div class="risk ${level}"><b>${escapeHTML(s.skill)}</b><div><p>${escapeHTML(holder)} · ${escapeHTML(profile)}</p><p>${s.affected_tasks.length} задач: ${s.affected_tasks.map(escapeHTML).join(', ')||'—'}</p><p>${escapeHTML(s.explanation)}</p>${explain}</div></div>`;
   };
   for(const [category,id] of [['role_deficit','bus-factor-role-deficit'],['unique_skill','bus-factor-unique-skill'],['parttime','bus-factor-parttime']]){
    const items=report.critical_skills.filter(s=>s.risk_category===category);$(id).hidden=!items.length;$(`${id}-items`).innerHTML=items.map(card).join('');
@@ -79,7 +80,7 @@ async function renderBusFactor(scenario){
 }
 function renderAlerts(){
  const alerts=state.alerts, summary=alerts.summary;
- const card=r=>`<div class="risk ${r.level}"><b>${escapeHTML(r.task_id||r.initiative||'Общее')}</b><div><span class="chip ${r.level==='red'?'red':r.level==='orange'?'orange':r.level==='gray'?'gray':''}">${escapeHTML(r.kind)}</span><p>${escapeHTML(r.message)}</p>${r.affected_tasks.length?`<p class="small">Затронутые задачи: ${r.affected_tasks.map(escapeHTML).join(', ')}</p>`:''}${r.affected_initiatives.length?`<p>${r.affected_initiatives.map(i=>`<span class="chip">${escapeHTML(i)}</span>`).join(' ')}</p>`:''}</div></div>`;
+ const card=r=>`<div class="risk ${r.level}"><b>${escapeHTML(r.task_id||r.initiative||'Общее')}</b><div><span class="chip ${r.level==='red'?'red':r.level==='orange'?'orange':r.level==='gray'?'gray':''}">${escapeHTML(r.kind)}</span><p>${escapeHTML(r.message)}</p>${r.affected_tasks.length?`<p class="small">Затронутые задачи: ${r.affected_tasks.map(escapeHTML).join(', ')}</p>`:''}${r.affected_initiatives.length?`<p>${r.affected_initiatives.map(i=>`<span class="chip">${escapeHTML(i)}</span>`).join(' ')}</p>`:''}${r.task_id?`<button class="link" data-explain-task="${escapeHTML(r.task_id)}">Объяснить</button>`:''}</div></div>`;
  const group=(id,title,items)=>$(id).innerHTML=items.length?`<h3>${title} (${items.length})</h3>${items.map(card).join('')}`:'';
  $('alerts-summary').innerHTML=`<span>🔴 ${summary.critical}</span><span>🟡 ${summary.cascade}</span><span>🟠 ${summary.resource}</span><span>⚪ ${summary.info}</span>`;
  group('alerts-critical','🔴 Критические',alerts.critical);
@@ -89,6 +90,23 @@ function renderAlerts(){
  $('alerts-info').innerHTML=alerts.info.length?`<h3>⚪ Информационные (${alerts.info.length})</h3>${alerts.info.map(card).join('')}`:'';
  if(!Object.values(summary).some(Boolean))$('alerts-critical').innerHTML='<div class="panel">Ограничений в текущем плане не найдено.</div>';
 }
+async function showExplain(taskId){
+ const item=await api(`/api/explain/task/${encodeURIComponent(taskId)}`);
+ showExplainContent(`${item.task_id} · ${item.title}`,item.explanation,item.suggested_actions,item.affected_tasks,item.affected_initiatives);
+}
+function showExplainContent(title,text,actions=[],tasks=[],initiatives=[]){
+ $('explain-title').textContent=title;$('explain-text').textContent=text;
+ $('explain-actions').innerHTML=actions.map(a=>`<li>${escapeHTML(a)}</li>`).join('')||'<li>Дальнейших действий не требуется.</li>';
+ $('explain-affected').innerHTML=[tasks.length&&`Задачи: ${tasks.map(escapeHTML).join(', ')}`,initiatives.length&&`Инициативы: ${initiatives.map(i=>`<span class="chip">${escapeHTML(i)}</span>`).join(' ')}`].filter(Boolean).join('<br>')||'Нет связанных работ';
+ $('explain-modal').hidden=false;
+}
+function closeExplain(){$('explain-modal').hidden=true;}
+document.addEventListener('click',async event=>{
+ const task=event.target.closest('[data-explain-task]'),text=event.target.closest('[data-explain-text]');
+ if(task){try {await showExplain(task.dataset.explainTask);} catch(error){notice(error.message);}}
+ if(text)showExplainContent(text.dataset.explainTitle,text.dataset.explainText);
+ if(event.target.id==='explain-close'||event.target.id==='explain-modal')closeExplain();
+});
 function renderMetrics(){const m=state.metrics;if(!m.confirmed){$('metrics').textContent=m.message;return;}
  $('metrics').innerHTML=`<div class="form-row"><div><strong>${num(m.quarter_percent)}%</strong> квартального плана по факту (${m.completed_initiatives}/${m.baseline_initiatives} инициатив)</div><div class="muted">Прогноз: ${num(m.forecast_percent)}%</div></div><p class="muted">${escapeHTML(m.message)}</p>`+table(['Спринт','Исходный план, SP','Факт, SP','Say/Do'],m.sprints.map(s=>[s.sprint,num(s.planned_sp),num(s.actual_sp),s.percent===null?'—':num(s.percent)+'%']));}
 function currentRemainder(task){
