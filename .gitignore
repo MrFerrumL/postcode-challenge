@@ -1,0 +1,9 @@
+.venv/
+.idea/
+__pycache__/
+.pytest_cache/
+*.pyc
+data/state/*.sqlite3*
+data/*.sqlite3*
+work/*
+!work/.gitkeep

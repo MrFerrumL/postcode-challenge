@@ -1,93 +1,94 @@
-# template-gitlab-8c0dabb4
+# Квартал: планирование команд
 
-Template for task: GitLab репозиторий
+Локальное FastAPI-приложение для хакатона. Оно читает исходный Excel, строит план из шести двухнедельных спринтов, показывает риски, карту компетенций и KPI. Исходные данные включены в `data/source.xlsx`.
 
-## Getting started
+## Что делает сервис
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- Проверяет структуру исходного Excel и сообщает о несовпадениях оценок.
+- Планирует `ToDo` и `InProgress` по спринтам, не превышая лимит SP команды и доступные часы сотрудников.
+- Проверяет зависимости: следующая задача стартует не раньше следующего спринта после завершения предшественника.
+- Не считает инженера, работающего в двух командах по 0,5 ставки, двумя разными людьми.
+- Показывает переносы и понятную причину: дефицит роли, навыков, часов, SP или зависимость.
+- Сохраняет первоначальный план отдельно от факта, поэтому KPI не меняет базу сравнения после пересчёта.
+- Строит Bus Factor по заявленным навыкам. Прогноз Ridge из scikit-learn размещён отдельно и не отменяет жёсткие ограничения.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Быстрый запуск
 
-## Add your files
+Нужен Python 3.12+.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+python -m uvicorn app.main:app --reload
 ```
-cd existing_repo
-git remote add origin https://git.codenrock.com/codenrock/khakaton-postcode-challenge-ot-pochtatekha/template-gitlab-8c0dabb4.git
-git branch -M main
-git push -uf origin main
+
+Откройте http://127.0.0.1:8000. В стартовом экране нажмите **«Использовать датасет хакатона»**. API-документация доступна по адресу http://127.0.0.1:8000/docs.
+
+Если Windows блокирует `Activate.ps1`, не меняйте системную политику: запускайте команды через `.\.venv\Scripts\python.exe`, например:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-## Integrate with your tools
+## Работа в PyCharm
 
-- [ ] [Set up project integrations](https://git.codenrock.com/codenrock/khakaton-postcode-challenge-ot-pochtatekha/template-gitlab-8c0dabb4/-/settings/integrations)
+1. Откройте папку `quarter-planner` как проект.
+2. В **File → Settings → Project → Python Interpreter** выберите созданный `.venv\Scripts\python.exe`. Если окружения ещё нет, нажмите **Add Interpreter → Add Local Interpreter → Virtualenv**, выберите `New` и базовый Python 3.12+.
+3. В окне терминала PyCharm выполните `python -m pip install -r requirements-dev.txt`.
+4. В папке `.run` уже есть конфигурация **Run FastAPI**. После выбора интерпретатора она появится в списке запусков. Если PyCharm её не показывает, создайте конфигурацию: **Run → Edit Configurations → + → Python**. Укажите:
+   - Module name: `uvicorn`
+   - Parameters: `app.main:app --reload`
+   - Working directory: корень проекта `quarter-planner`
+5. Запустите конфигурацию. Откройте ссылку `http://127.0.0.1:8000` из консоли.
 
-## Collaborate with your team
+Для отладки можно поставить breakpoint в `app/planner.py`, затем запустить конфигурацию через **Debug**.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## Как проверить код
 
-## Test and Deploy
+Все тесты запускаются одной командой:
 
-Use the built-in continuous integration in GitLab.
+```powershell
+python -m pytest -q
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Проверяются загрузка реального Excel, лимиты SP и часов, разделённые сотрудники, разбиение большой задачи, зависимости, отсутствие ролей и навыков, пересчёт после факта, неизменность baseline, KPI, Bus Factor, API, SQLite-сценарии и ML-модуль.
 
-***
+Для быстрой ручной проверки:
 
-# Editing this README
+1. Откройте исходный датасет и посмотрите 37 предупреждений на вкладке «Данные и настройки». Это реальные несогласованности Excel, а не ошибка интерфейса.
+2. На «Плане квартала» подтвердите исходный план.
+3. На вкладке «Факт спринта» загрузите `examples/fact_sprint_1.json` или вставьте его содержимое. Это демонстрирует пересчёт после завершения `MP-102`.
+4. На вкладке «Данные и настройки» измените доступность сотрудника либо уточните остаток задачи, затем пересчитайте план.
+5. На «Рисках и ограничениях» убедитесь, что причины переноса и каскадные сдвиги отображаются отдельно.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## Алгоритм и допущения
 
-## Suggestions for a good README
+Емкость команды на спринт равна среднему `velocity_achieved` из `Team_history`, умноженному на 0,8. Сотрудник с `capacity_rate=1.0` имеет 80 часов на спринт, с 0,5 — 40 часов. Эти 80 часов уже соответствуют правилам онбординга, поэтому коэффициент 0,8 повторно к ним не применяется.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Задача распределяется пропорционально по часам и SP между ближайшими спринтами, где хватает одновременно SP команды и всех требуемых ролей. Если задача не входит в горизонт, её пробное распределение полностью откатывается, чтобы не блокировать более выполнимые работы. Это детерминированный жадный алгоритм: его решения объяснимы, но он не обещает глобально оптимальный портфель инициатив.
 
-## Name
-Choose a self-explaining name for your project.
+В исходном Excel `estimated_hh`, сумма часов ролей и строка «Итого по ролям» для части задач различаются. Для проверки ролей используется подробная матрица часов по ролям; расхождения остаются видимыми в приложении. Для задач InProgress расчётный остаток равен `max(оценка роли − потрачено по роли, 0)`. Его нужно подтвердить или изменить в интерфейсе перед финальной демонстрацией.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+В данных нет подтверждённых требований к технологиям задач. По умолчанию сервис контролирует роли и часы. Для строгой проверки включите соответствующую настройку и укажите навыки каждой роли задачи. Пустое поле навыков после подтверждения означает, что дополнительных требований к роли нет.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Текущие 12 исторических наблюдений недостаточны для надёжного ML-прогноза. Ridge показан как изолированный эксперимент с временной проверкой; результат нельзя использовать для превышения лимита SP.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Структура
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```text
+app/
+  loader.py       # разбор и валидация Excel
+  planner.py      # распределение задач по 6 спринтам
+  analytics.py    # риски, KPI и Bus Factor
+  ml.py           # эксперимент Ridge
+  storage.py      # сценарии и факты в SQLite
+  main.py         # FastAPI API и страницы
+  static/         # интерфейс без отдельного frontend-сборщика
+data/source.xlsx  # датасет хакатона
+examples/         # пример факта спринта
+tests/            # автоматические проверки
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+`data/state/planner.sqlite3` создаётся только при работе приложения и хранит локальные сценарии. Он не включается в исходный код.
