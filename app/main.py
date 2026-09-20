@@ -7,6 +7,7 @@ from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from .analytics import build_bus_factor_report, group_risks, metrics, risks, star_map
+from .diff import diff_plans, list_deferred
 from .explainer import explain_engineer, explain_initiative, explain_task
 from .loader import load_excel, role_name, skill_name
 from .ml import forecast
@@ -118,6 +119,26 @@ def create_app(db_path=None):
         settings = PlanRequest.model_validate(state["settings"])
         stars = star_map(data, settings, state["plan"])
         return build_bus_factor_report(stars, data, settings)
+
+    @app.get("/api/diff")
+    def diff_endpoint():
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        revisions = state.get("revisions", [])
+        if not revisions:
+            return {"empty":True, "message":"Пересчётов ещё не было. Diff появится после первого пересчёта."}
+        data = Dataset.model_validate(state["dataset"])
+        result = diff_plans(revisions[-1]["plan"], state["plan"], data)
+        result["revision_reason"] = revisions[-1]["reason"]
+        return result
+
+    @app.get("/api/deferred")
+    def deferred_endpoint():
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        return list_deferred(state["plan"], Dataset.model_validate(state["dataset"]))
 
     @app.get("/api/explain/task/{task_id}")
     def explain_task_endpoint(task_id: str):

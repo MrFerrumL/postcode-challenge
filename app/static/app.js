@@ -31,7 +31,7 @@ function render(next){
  $('baseline').textContent=state.baseline?'Исходный план сохранён':'Подтвердить исходный план';$('baseline').disabled=!!state.baseline;
  const teams=Object.keys(plan.capacities).sort();options($('team-filter'),teams,'Все команды');options($('people-team'),teams,'Все команды');
  $('loads').innerHTML=table(['Команда',...Array.from({length:6},(_,i)=>`Спринт ${i+1}`)],teams.map(team=>[escapeHTML(team),...Array.from({length:6},(_,i)=>{const l=plan.loads.find(x=>x.team===team&&x.sprint===i+1);return l?`${num(l.sp)} / ${num(l.capacity)}<div class="bar"><i style="width:${Math.min(100,l.capacity?l.sp/l.capacity*100:0)}%"></i></div>`:'<span class="muted">Закрыт</span>'})]));
- renderSchedule();renderPeople();renderBusFactor(state.id);
+ renderSchedule();renderPeople();renderBusFactor(state.id);renderDeferred(state.id);renderDiff(state.id);
  $('initiatives').innerHTML=plan.initiatives.map(i=>`<div class="card"><h3>${escapeHTML(i.id)}</h3><span class="chip ${i.feasible?'':'orange'}">${i.done?'Завершена':i.feasible?'Укладывается в прогноз':'Цель под риском'}</span><p>${i.planned_tasks} задач в будущем плане${i.blocked_tasks.length?` · ${i.blocked_tasks.length} с ограничениями`:''}</p></div>`).join('');
  renderAlerts();
  $('start-date').value=state.settings.start_date;$('start-date').disabled=!!state.baseline;$('strict-skills').checked=state.settings.strict_skills;
@@ -89,6 +89,30 @@ function renderAlerts(){
  $('alerts-info-toggle').hidden=!alerts.info.length;
  $('alerts-info').innerHTML=alerts.info.length?`<h3>⚪ Информационные (${alerts.info.length})</h3>${alerts.info.map(card).join('')}`:'';
  if(!Object.values(summary).some(Boolean))$('alerts-critical').innerHTML='<div class="panel">Ограничений в текущем плане не найдено.</div>';
+}
+async function renderDeferred(scenario){
+ try {
+  const report=await api('/api/deferred');
+  if(state.id!==scenario)return;
+  const total=report.summary.total;$('deferred-section').hidden=!total;
+  if(!total)return;
+  $('deferred-section').querySelector('h2').textContent=`Что предлагается перенести (${total} задач)`;
+  const card=item=>`<div class="diff-item removed"><b>${escapeHTML(item.task_id)}</b> <span class="small">${escapeHTML(item.initiative)} · ${escapeHTML(item.team)}</span>${item.role?`<p>${escapeHTML(item.role)}${item.hours==null?'':` · ${num(item.hours)} ч`}</p>`:''}${item.required_skills?`<p class="small">Навыки: ${escapeHTML(item.required_skills)}</p>`:''}<p>${escapeHTML(item.reason)}</p><button class="link" data-explain-task="${escapeHTML(item.task_id)}">Объяснить</button></div>`;
+  const groups=[['missing_role','🔴 Нет роли в команде'],['missing_skills','🔴 Нет навыков'],['horizon','🟠 Не вошло в горизонт'],['dependency','🟡 Зависит от незавершённых']];
+  const other=[...report.unknown_skills,...report.unknown_remaining,...report.other];
+  $('deferred').innerHTML=groups.filter(([code])=>report[code].length).map(([code,title])=>`<div class="deferred-group"><h3>${title} (${report[code].length})</h3>${report[code].map(card).join('')}</div>`).join('')+(other.length?`<div class="deferred-group"><h3>⚪ Нужны уточнения и прочее (${other.length})</h3>${other.map(card).join('')}</div>`:'');
+ } catch(e) {$('deferred-section').hidden=false;$('deferred').innerHTML='<p class="muted">Не удалось загрузить список переносов.</p>';}
+}
+async function renderDiff(scenario){
+ try {
+  const report=await api('/api/diff');
+  if(state.id!==scenario)return;
+  if(report.empty){$('diff').innerHTML=`<div class="panel muted">${escapeHTML(report.message)}</div>`;return;}
+  const card=(item,type,text)=>`<div class="diff-item ${type}"><b>${escapeHTML(item.task_id||item.id)}</b><p>${escapeHTML(text(item))}</p>${item.task_id?`<button class="link" data-explain-task="${escapeHTML(item.task_id)}">Объяснить</button>`:''}</div>`;
+  const groups=[['shifts','🔀 Сдвинутые задачи','shift',item=>item.reason],['added','➕ Добавленные','added',item=>`${item.initiative}. ${item.reason}`],['removed','➖ Убранные','removed',item=>`${item.initiative}: ${item.old_status} → ${item.new_status}. ${item.reason}`],['initiatives','⚠️ Инициативы','initiative',item=>`${item.was_feasible?'Укладывалась':'Была под риском'} → ${item.now_feasible?'укладывается':'под угрозой'}. Заблокировано: ${item.blocked_tasks.join(', ')||'нет'}`]];
+  const s=report.summary, content=groups.filter(([key])=>report[key].length).map(([key,title,type,text])=>`<div class="diff-group"><h3>${title} (${report[key].length})</h3>${report[key].map(item=>card(item,type,text)).join('')}</div>`).join('');
+  $('diff').innerHTML=`<div class="diff-summary"><span>🔀 ${s.shifts}</span><span>➕ ${s.added}</span><span>➖ ${s.removed}</span><span>⚠️ ${s.initiatives_affected}</span></div><p class="muted">Пересчёт: ${escapeHTML(report.revision_reason)}</p>`+(content||'<p class="muted">Изменений после пересчёта не найдено.</p>');
+ } catch(e) {$('diff').innerHTML='<p class="muted">Не удалось загрузить diff пересчёта.</p>';}
 }
 async function showExplain(taskId){
  const item=await api(`/api/explain/task/${encodeURIComponent(taskId)}`);
