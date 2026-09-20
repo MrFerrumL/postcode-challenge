@@ -65,10 +65,11 @@ async function renderBusFactor(scenario){
   if(!critical.length)$('bus-factor').innerHTML='<p class="muted">Критических компетенций не найдено</p>';
   const card=s=>{
    const level=s.risk_level==='critical'?'red':s.risk_level==='high'?'orange':'yellow';
-   const holder=s.holder_name||s.holder||'Носитель не найден';
+   const holder=s.holder_name||s.holder;
    const profile=s.holder_role?`${s.holder_role} · ${num(s.holder_rate)} ставки`:'роль и ставка не определены';
+   const holderText=holder?`${holder} · ${profile}`:'Носитель не найден · роль и ставка не определены';
    const explain=s.affected_tasks.length?`<button class="link" data-explain-task="${escapeHTML(s.affected_tasks[0])}">Почему BF=1?</button>`:s.explanation?`<button class="link" data-explain-text="${escapeHTML(s.explanation)}" data-explain-title="${escapeHTML(s.skill)}">Почему BF=1?</button>`:'';
-   return `<div class="risk ${level}"><b>${escapeHTML(s.skill)}</b><div><p>${escapeHTML(holder)} · ${escapeHTML(profile)}</p><p>${s.affected_tasks.length} задач: ${s.affected_tasks.map(escapeHTML).join(', ')||'—'}</p><p>${escapeHTML(s.explanation)}</p>${explain}</div></div>`;
+   return `<details class="bus-factor-card risk-${level}"><summary><b>${escapeHTML(s.skill)}</b><span class="chip">${s.affected_tasks.length} задач</span><span class="small">${escapeHTML(s.scope)}</span></summary><div class="bus-factor-body"><p>${escapeHTML(holderText)}</p><p>${escapeHTML(s.explanation)}</p>${s.affected_tasks.length?`<p>Затронуто задач: ${s.affected_tasks.length}</p><div class="task-chips scrollable">${s.affected_tasks.map(task=>`<span class="chip">${escapeHTML(task)}</span>`).join('')}</div>`:''}${s.affected_initiatives.length?`<p>Затронуто инициатив: ${s.affected_initiatives.length}</p><div class="task-chips">${s.affected_initiatives.map(initiative=>`<span class="chip">${escapeHTML(initiative)}</span>`).join('')}</div>`:''}${explain}</div></details>`;
   };
   for(const [category,id] of [['role_deficit','bus-factor-role-deficit'],['unique_skill','bus-factor-unique-skill'],['parttime','bus-factor-parttime']]){
    const items=report.critical_skills.filter(s=>s.risk_category===category);$(id).hidden=!items.length;$(`${id}-items`).innerHTML=items.map(card).join('');
