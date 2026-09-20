@@ -6,11 +6,13 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from .analytics import metrics, risks, star_map
+from .analytics import build_bus_factor_report, group_risks, metrics, risks, star_map
+from .diff import diff_plans, list_deferred
+from .explainer import explain_engineer, explain_initiative, explain_task
 from .loader import load_excel, role_name, skill_name
 from .ml import forecast
 from .planner import build_plan, snapshot, validate_settings
-from .schemas import Dataset, History, PlanRequest, SprintFact
+from .schemas import BusFactorReport, Dataset, History, PlanRequest, SprintFact
 from .storage import Store
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -99,13 +101,80 @@ def create_app(db_path=None):
         data = Dataset.model_validate(state["dataset"])
         settings = PlanRequest.model_validate(state["settings"])
         plan = state["plan"]
+        risks_list = risks(plan,state["baseline"],data)
         return dict(**state, empty=False, scenarios=store.list(),
                     metrics=metrics(data,settings,state["facts"],state["baseline"],plan),
-                    stars=star_map(data,settings,plan), risks=risks(plan,state["baseline"],data))
+                    stars=star_map(data,settings,plan), risks=risks_list, alerts=group_risks(risks_list))
 
     @app.get("/api/state")
     def state():
         return present(store.read())
+
+    @app.get("/api/bus-factor", response_model=BusFactorReport)
+    def bus_factor():
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        data = Dataset.model_validate(state["dataset"])
+        settings = PlanRequest.model_validate(state["settings"])
+        stars = star_map(data, settings, state["plan"])
+        return build_bus_factor_report(stars, data, settings)
+
+    @app.get("/api/diff")
+    def diff_endpoint():
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        revisions = state.get("revisions", [])
+        if not revisions:
+            return {"empty":True, "message":"Пересчётов ещё не было. Diff появится после первого пересчёта."}
+        data = Dataset.model_validate(state["dataset"])
+        result = diff_plans(revisions[-1]["plan"], state["plan"], data)
+        result["revision_reason"] = revisions[-1]["reason"]
+        return result
+
+    @app.get("/api/deferred")
+    def deferred_endpoint():
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        return list_deferred(state["plan"], Dataset.model_validate(state["dataset"]))
+
+    @app.get("/api/explain/task/{task_id}")
+    def explain_task_endpoint(task_id: str):
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        data = Dataset.model_validate(state["dataset"])
+        settings = PlanRequest.model_validate(state["settings"])
+        result = explain_task(task_id, state["plan"], data, settings)
+        if result is None:
+            raise ValueError(f"Неизвестная задача {task_id}")
+        return result
+
+    @app.get("/api/explain/initiative/{initiative_id}")
+    def explain_initiative_endpoint(initiative_id: str):
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        data = Dataset.model_validate(state["dataset"])
+        settings = PlanRequest.model_validate(state["settings"])
+        result = explain_initiative(initiative_id, state["plan"], data, settings)
+        if result is None:
+            raise ValueError(f"Неизвестная инициатива {initiative_id}")
+        return result
+
+    @app.get("/api/explain/engineer/{engineer_id}")
+    def explain_engineer_endpoint(engineer_id: str):
+        state = store.read()
+        if not state:
+            raise ValueError("Сначала загрузите данные")
+        data = Dataset.model_validate(state["dataset"])
+        settings = PlanRequest.model_validate(state["settings"])
+        result = explain_engineer(engineer_id, state["plan"], data, settings)
+        if result is None:
+            raise ValueError(f"Неизвестный инженер {engineer_id}")
+        return result
 
     @app.post("/api/demo")
     def demo():
