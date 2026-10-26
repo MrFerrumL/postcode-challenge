@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="title desc">
+  <title id="title">Хакатон PostCode Challenge от Почтатеха</title>
+  <desc id="desc">Сервис квартального планирования IT-команд: шесть спринтов, двенадцать недель, план и анализ рисков.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#122d2b"/><stop offset="1" stop-color="#0c1d23"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#7fc9b1" stroke-opacity=".065"/></pattern>
+  </defs>
+  <rect width="1280" height="480" rx="20" fill="url(#bg)"/>
+  <rect width="1280" height="480" rx="20" fill="url(#grid)"/>
+  <path d="M0 0H1280" stroke="#89e0b7" stroke-width="8"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <rect x="56" y="48" width="258" height="32" rx="16" fill="#89e0b7" fill-opacity=".12"/>
+    <text x="76" y="69" fill="#a2efcc" font-size="12" font-weight="600" letter-spacing="1.4">ПОРТФОЛИО / ХАКАТОН</text>
+    <text x="56" y="165" fill="#f2faf6" font-size="58" font-weight="750" letter-spacing="-2">PostCode</text>
+    <text x="56" y="230" fill="#f2faf6" font-size="58" font-weight="750" letter-spacing="-2">Challenge</text>
+    <text x="59" y="275" fill="#89e0b7" font-size="25">от Почтатеха</text>
+    <text x="59" y="332" fill="#c1d4cc" font-size="19">Планирование IT-команд.</text>
+    <text x="59" y="360" fill="#c1d4cc" font-size="19">Ресурсы, компетенции и выполнимый квартал.</text>
+    <text x="59" y="428" fill="#8ca99e" font-size="12" letter-spacing="1">PYTHON / FASTAPI / SQLITE / SCIKIT-LEARN</text>
+  </g>
+  <g transform="translate(716 74)" font-family="Segoe UI,Arial,sans-serif">
+    <rect width="504" height="330" rx="14" fill="#193b35" stroke="#426657"/>
+    <text x="28" y="42" fill="#e5f5ec" font-size="16" font-weight="600">Горизонт планирования</text>
+    <text x="28" y="88" fill="#a2efcc" font-size="31" font-weight="700">12 недель</text>
+    <text x="213" y="86" fill="#a6c1b5" font-size="14">/ 6 спринтов</text>
+    <g transform="translate(28 123)">
+      <path d="M0 0H448M0 43H448M0 86H448M0 129H448M0 172H448M0 0V172M75 0V172M150 0V172M225 0V172M300 0V172M375 0V172M448 0V172" fill="none" stroke="#426657" stroke-opacity=".6"/>
+      <rect x="8" y="12" width="129" height="20" rx="5" fill="#89e0b7"/>
+      <rect x="83" y="55" width="129" height="20" rx="5" fill="#7eb3d0"/>
+      <rect x="158" y="98" width="129" height="20" rx="5" fill="#d5b782"/>
+      <rect x="308" y="141" width="128" height="20" rx="5" fill="#89e0b7"/>
+    </g>
+  </g>
+</svg>

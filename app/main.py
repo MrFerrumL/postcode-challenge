@@ -78,7 +78,7 @@ def validate_fact(data, settings, existing, fact):
 
 
 def create_app(db_path=None):
-    app = FastAPI(title="Квартал — планирование команд", version="1.0.0")
+    app = FastAPI(title="Хакатон PostCode Challenge от Почтатеха", description="Планирование IT-команд, карта компетенций и анализ рисков.", version="1.0.0")
     store = Store(db_path or os.environ.get("PLANNER_DB", str(ROOT/"data"/"state"/"planner.sqlite3")))
     app.state.store = store
     app.mount("/static", StaticFiles(directory=ROOT/"app"/"static"), name="static")
